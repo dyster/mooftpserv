@@ -35,7 +35,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
-    <Compile Include="Server.cs" />
+    <Compile Include="FtpServer.cs" />
     <Compile Include="Session.cs" />
     <Compile Include="IFileSystemHandler.cs" />
     <Compile Include="DefaultFileSystemHandler.cs" />

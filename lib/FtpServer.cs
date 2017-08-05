@@ -10,7 +10,7 @@ namespace mooftpserv
     /// Main FTP server class. Manages the server socket, creates sessions.
     /// Can be used to configure the server.
     /// </summary>
-    public class Server
+    public class FtpServer
     {
         // default buffer size for send/receive buffers
         private const int DEFAULT_BUFFER_SIZE = 64 * 1024;
@@ -26,7 +26,7 @@ namespace mooftpserv
         private TcpListener socket = null;
         private List<Session> sessions;
 
-        public Server()
+        public FtpServer()
         {
             this.endpoint = new IPEndPoint(GetDefaultAddress(), DEFAULT_PORT);
             this.sessions = new List<Session>();
