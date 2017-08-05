@@ -74,7 +74,7 @@ namespace mooftpserv
                 }
             }
 
-            Server srv = new Server();
+            FtpServer srv = new FtpServer();
 
             srv.LogHandler = new DefaultLogHandler(verbose);
             srv.AuthHandler = new DefaultAuthHandler(anyPeer);
