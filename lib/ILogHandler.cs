@@ -22,4 +22,3 @@ namespace mooftpserv
         void ClosedDataConnection(IPEndPoint remote, IPEndPoint local, bool passive);
     }
 }
-

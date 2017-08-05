@@ -60,7 +60,8 @@ namespace mooftpserv
 
         public void ReceivedCommand(string verb, string arguments)
         {
-            if (verbose) {
+            if (verbose)
+            {
                 string argtext = (arguments == null || arguments == "" ? "" : ' ' + arguments);
                 Write("received command: {0}{1}", verb, argtext);
             }
@@ -85,4 +86,3 @@ namespace mooftpserv
         }
     }
 }
-

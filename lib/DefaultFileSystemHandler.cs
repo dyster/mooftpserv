@@ -11,21 +11,27 @@ namespace mooftpserv
     public class DefaultFileSystemHandler : IFileSystemHandler
     {
         // list of supported operating systems
-        private enum OS { WinNT, WinCE, Unix };
+        private enum OS
+        {
+            WinNT,
+            WinCE,
+            Unix
+        };
 
         // currently used operating system
         private OS os;
+
         // current path as TVFS or unix-like
         private string currentPath;
 
         public DefaultFileSystemHandler(string startPath)
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-              os = OS.WinNT;
+                os = OS.WinNT;
             else if (Environment.OSVersion.Platform == PlatformID.WinCE)
-              os = OS.WinCE;
+                os = OS.WinCE;
             else // probably UNIX
-              os = OS.Unix;
+                os = OS.Unix;
 
             this.currentPath = startPath;
         }
@@ -36,8 +42,8 @@ namespace mooftpserv
 
         private DefaultFileSystemHandler(string path, OS os)
         {
-          this.currentPath = path;
-          this.os = os;
+            this.currentPath = path;
+            this.os = os;
         }
 
         public IFileSystemHandler Clone(IPEndPoint peer)
@@ -56,7 +62,8 @@ namespace mooftpserv
 
 #if !WindowsCE
             // special fake root for WinNT drives
-            if (os == OS.WinNT && newPath == "/") {
+            if (os == OS.WinNT && newPath == "/")
+            {
                 currentPath = newPath;
                 return MakeResult<string>(newPath);
             }
@@ -79,13 +86,16 @@ namespace mooftpserv
         {
             string newPath = ResolvePath(path);
 
-            try {
+            try
+            {
                 DirectoryInfo newDir = new DirectoryInfo(DecodePath(newPath));
                 if (newDir.Exists)
                     return MakeError<string>("Directory already exists.");
 
                 newDir.Create();
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<string>(ex.Message);
             }
 
@@ -96,7 +106,8 @@ namespace mooftpserv
         {
             string newPath = ResolvePath(path);
 
-            try {
+            try
+            {
                 DirectoryInfo newDir = new DirectoryInfo(DecodePath(newPath));
                 if (!newDir.Exists)
                     return MakeError<bool>("Directory does not exist.");
@@ -105,7 +116,9 @@ namespace mooftpserv
                     return MakeError<bool>("Directory is not empty.");
 
                 newDir.Delete();
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<bool>(ex.Message);
             }
 
@@ -120,9 +133,12 @@ namespace mooftpserv
             if (!File.Exists(realPath))
                 return MakeError<Stream>("File does not exist.");
 
-            try {
+            try
+            {
                 return MakeResult<Stream>(File.OpenRead(realPath));
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<Stream>(ex.Message);
             }
         }
@@ -132,16 +148,18 @@ namespace mooftpserv
             string newPath = ResolvePath(path);
             string realPath = DecodePath(newPath);
 
-            try {
-#if WindowsCE
-                // our flash filesystem on WinCE has issues
-                // when truncating files, so delete before writing.
+            try
+            {
+#if WindowsCE // our flash filesystem on WinCE has issues
+// when truncating files, so delete before writing.
                 if (File.Exists(realPath))
                     File.Delete(realPath);
 #endif
 
                 return MakeResult<Stream>(File.Open(realPath, FileMode.OpenOrCreate));
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<Stream>(ex.Message);
             }
         }
@@ -154,9 +172,12 @@ namespace mooftpserv
             if (!File.Exists(realPath))
                 return MakeError<bool>("File does not exist.");
 
-            try {
+            try
+            {
                 File.Delete(realPath);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<bool>(ex.Message);
             }
 
@@ -175,12 +196,15 @@ namespace mooftpserv
             if (File.Exists(realToPath) || Directory.Exists(realToPath))
                 return MakeError<bool>("Target path already exists.");
 
-            try {
+            try
+            {
                 if (isFile)
                     File.Move(realFromPath, realToPath);
                 else
                     Directory.Move(realFromPath, realToPath);
-            } catch (Exception ex) {
+            }
+            catch (Exception ex)
+            {
                 return MakeError<bool>(ex.Message);
             }
 
@@ -197,9 +221,11 @@ namespace mooftpserv
 
 #if !WindowsCE
             // special fake root for WinNT drives
-            if (os == OS.WinNT && newPath == "/") {
+            if (os == OS.WinNT && newPath == "/")
+            {
                 DriveInfo[] drives = DriveInfo.GetDrives();
-                foreach (DriveInfo drive in drives) {
+                foreach (DriveInfo drive in drives)
+                {
                     if (!drive.IsReady)
                         continue;
 
@@ -219,13 +245,14 @@ namespace mooftpserv
             FileSystemInfo[] files;
 
             if (File.Exists(realPath))
-                files = new FileSystemInfo[] { new FileInfo(realPath) };
+                files = new FileSystemInfo[] {new FileInfo(realPath)};
             else if (Directory.Exists(realPath))
                 files = new DirectoryInfo(realPath).GetFileSystemInfos();
             else
                 return MakeError<FileSystemEntry[]>("Path does not exist.");
 
-            foreach (FileSystemInfo file in files) {
+            foreach (FileSystemInfo file in files)
+            {
                 FileSystemEntry entry = new FileSystemEntry();
                 entry.Name = file.Name;
                 // CF is missing FlagsAttribute.HasFlag
@@ -281,7 +308,8 @@ namespace mooftpserv
             if (path == null || path == "" || path[0] != '/')
                 return null;
 
-            if (os == OS.WinNT) {
+            if (os == OS.WinNT)
+            {
                 // some error checking for the drive layer
                 if (path == "/")
                     return null; // should have been caught elsewhere
@@ -296,9 +324,13 @@ namespace mooftpserv
                     return path[1] + @":\";
                 else
                     return path[1] + @":\" + path.Substring(3).Replace("/", @"\");
-            } else if (os == OS.WinCE) {
+            }
+            else if (os == OS.WinCE)
+            {
                 return path.Replace("/", @"\");
-            } else {
+            }
+            else
+            {
                 return path;
             }
         }

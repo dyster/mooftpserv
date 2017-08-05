@@ -14,8 +14,8 @@ namespace mooftpserv
 
         private DefaultAuthHandler(IPEndPoint peer, bool allowAnyDataPeer)
         {
-          this.peer = peer;
-          this.allowAnyDataPeer = allowAnyDataPeer;
+            this.peer = peer;
+            this.allowAnyDataPeer = allowAnyDataPeer;
         }
 
         public DefaultAuthHandler(bool allowAnyDataPeer) : this(null, allowAnyDataPeer)
@@ -48,4 +48,3 @@ namespace mooftpserv
         }
     }
 }
-

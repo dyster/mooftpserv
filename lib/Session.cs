@@ -15,71 +15,101 @@ namespace mooftpserv
     class Session
     {
         // transfer data type, ascii or binary
-        enum DataType { ASCII, IMAGE };
+        enum DataType
+        {
+            ASCII,
+            IMAGE
+        };
 
         // buffer size to use for reading commands from the control connection
         private static int CMD_BUFFER_SIZE = 4096;
+
         // version from AssemblyInfo
-        private static string LIB_VERSION = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(2);
+        private static string LIB_VERSION = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version
+            .ToString(2);
+
         // monthnames for LIST command, since DateTime returns localized names
-        private static string[] MONTHS = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        private static string[] MONTHS =
+            {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+
         // response text for initial response. preceeded by application name and version number.
-        private static string[] HELLO_TEXT = { "What can I do for you?", "Good day, sir or madam.", "Hey ho let's go!", "The poor man's FTP server." };
+        private static string[] HELLO_TEXT =
+            {"What can I do for you?", "Good day, sir or madam.", "Hey ho let's go!", "The poor man's FTP server."};
+
         // response text for general ok messages
-        private static string[] OK_TEXT = { "Sounds good.", "Success!", "Alright, I'll do it...", "Consider it done." };
+        private static string[] OK_TEXT = {"Sounds good.", "Success!", "Alright, I'll do it...", "Consider it done."};
+
         // Result for FEAT command
-        private static string[] FEATURES = { "MDTM", "PASV", "SIZE", "TVFS", "UTF8" };
+        private static string[] FEATURES = {"MDTM", "PASV", "SIZE", "TVFS", "UTF8"};
 
         // local EOL flavor
         private static byte[] localEolBytes = Encoding.ASCII.GetBytes(Environment.NewLine);
+
         // FTP-mandated EOL flavor (= CRLF)
         private static byte[] remoteEolBytes = Encoding.ASCII.GetBytes("\r\n");
+
         // on Windows, no ASCII conversion is necessary (CRLF == CRLF)
         private static bool noAsciiConv = (localEolBytes == remoteEolBytes);
 
         // socket for the control connection
         private Socket controlSocket;
+
         // buffer size to use for sending/receiving with data connections
         private int dataBufferSize;
+
         // auth handler, checks user credentials
         private IAuthHandler authHandler;
+
         // file system handler, implements file system access for the FTP commands
         private IFileSystemHandler fsHandler;
+
         // log handler, used for diagnostic logging output. can be null.
         private ILogHandler logHandler;
+
         // Session thread, the control and data connections are processed in this thread
         private Thread thread;
 
         // .NET CF does not have Thread.IsAlive, so this flag replaces it
         private bool threadAlive = false;
+
         // Random Number Generator for OK and HELLO texts
         private Random randomTextIndex;
+
         // flag for whether the user has successfully logged in
         private bool loggedIn = false;
+
         // name of the logged in user, also used to remember the username when waiting for the PASS command
         private string loggedInUser = null;
+
         // argument of pending RNFR command, when waiting for an RNTO command
         private string renameFromPath = null;
 
         // remote data port. null when PASV is used.
         private IPEndPoint dataPort = null;
+
         // socket for data connections
         private Socket dataSocket = null;
+
         // .NET CF does not have Socket.Bound, so this flag replaces it
         private bool dataSocketBound = false;
+
         // buffer for reading from the control connection
         private byte[] cmdRcvBuffer;
+
         // number of bytes in the cmdRcvBuffer
         private int cmdRcvBytes;
+
         // buffer for sending/receiving with data connections
         private byte[] dataBuffer;
+
         // data type of the session, can be changed by the client
         private DataType transferDataType = DataType.ASCII;
 
         /// <summary>
         /// Creates a new session, which can afterwards be started with Start().
         /// </summary>
-        public Session(Socket socket, int bufferSize, IAuthHandler authHandler, IFileSystemHandler fileSystemHandler, ILogHandler logHandler)
+        public Session(Socket socket, int bufferSize, IAuthHandler authHandler, IFileSystemHandler fileSystemHandler,
+            ILogHandler logHandler)
         {
             this.controlSocket = socket;
             this.dataBufferSize = bufferSize;
@@ -108,7 +138,8 @@ namespace mooftpserv
         /// </summary>
         public void Start()
         {
-            if (!threadAlive) {
+            if (!threadAlive)
+            {
                 this.thread.Start();
                 threadAlive = true;
             }
@@ -119,7 +150,8 @@ namespace mooftpserv
         /// </summary>
         public void Stop()
         {
-            if (threadAlive) {
+            if (threadAlive)
+            {
                 threadAlive = false;
                 thread.Abort();
             }
@@ -140,8 +172,10 @@ namespace mooftpserv
             if (logHandler != null)
                 logHandler.NewControlConnection();
 
-            try {
-                if (!authHandler.AllowControlConnection()) {
+            try
+            {
+                if (!authHandler.AllowControlConnection())
+                {
                     Respond(421, "Control connection refused.");
                     // first flush, then close
                     controlSocket.Shutdown(SocketShutdown.Both);
@@ -152,44 +186,61 @@ namespace mooftpserv
                 Respond(220, String.Format("This is mooftpserv v{0}. {1}", LIB_VERSION, GetRandomText(HELLO_TEXT)));
 
                 // allow anonymous login?
-                if (authHandler.AllowLogin(null, null)) {
+                if (authHandler.AllowLogin(null, null))
+                {
                     loggedIn = true;
                 }
 
-                while (controlSocket.Connected) {
+                while (controlSocket.Connected)
+                {
                     string verb;
                     string args;
-                    if (!ReadCommand(out verb, out args)) {
-                        if (controlSocket.Connected) {
+                    if (!ReadCommand(out verb, out args))
+                    {
+                        if (controlSocket.Connected)
+                        {
                             // assume clean disconnect if there are no buffered bytes
                             if (cmdRcvBytes != 0)
                                 Respond(500, "Failed to read command, closing connection.");
                             controlSocket.Close();
                         }
                         break;
-                    } else if (verb.Trim() == "") {
+                    }
+                    else if (verb.Trim() == "")
+                    {
                         // ignore empty lines
                         continue;
                     }
 
-                    try {
+                    try
+                    {
                         if (loggedIn)
                             ProcessCommand(verb, args);
-                        else if (verb == "QUIT") { // QUIT should always be allowed
+                        else if (verb == "QUIT")
+                        {
+                            // QUIT should always be allowed
                             Respond(221, "Bye.");
                             // first flush, then close
                             controlSocket.Shutdown(SocketShutdown.Both);
                             controlSocket.Close();
-                        } else {
+                        }
+                        else
+                        {
                             HandleAuth(verb, args);
                         }
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex)
+                    {
                         Respond(500, ex);
                     }
                 }
-            } catch (Exception) {
+            }
+            catch (Exception)
+            {
                 // catch any uncaught stuff, the server should not throw anything
-            } finally {
+            }
+            finally
+            {
                 if (controlSocket.Connected)
                     controlSocket.Close();
 
@@ -205,7 +256,8 @@ namespace mooftpserv
         /// </summary>
         private void ProcessCommand(string verb, string arguments)
         {
-            switch (verb) {
+            switch (verb)
+            {
                 case "SYST":
                 {
                     Respond(215, "UNIX emulated by mooftpserv");
@@ -246,13 +298,18 @@ namespace mooftpserv
                 }
                 case "TYPE":
                 {
-                    if (arguments == "A" || arguments == "A N") {
+                    if (arguments == "A" || arguments == "A N")
+                    {
                         transferDataType = DataType.ASCII;
                         Respond(200, "Switching to ASCII mode.");
-                    } else if (arguments == "I") {
+                    }
+                    else if (arguments == "I")
+                    {
                         transferDataType = DataType.IMAGE;
                         Respond(200, "Switching to BINARY mode.");
-                    } else {
+                    }
+                    else
+                    {
                         Respond(500, "Unknown TYPE arguments.");
                     }
                     break;
@@ -260,12 +317,14 @@ namespace mooftpserv
                 case "PORT":
                 {
                     IPEndPoint port = ParseAddress(arguments);
-                    if (port == null) {
+                    if (port == null)
+                    {
                         Respond(500, "Invalid host-port format.");
                         break;
                     }
 
-                    if (!authHandler.AllowActiveDataConnection(port)) {
+                    if (!authHandler.AllowActiveDataConnection(port))
+                    {
                         Respond(500, "PORT arguments refused.");
                         break;
                     }
@@ -279,9 +338,12 @@ namespace mooftpserv
                 {
                     dataPort = null;
 
-                    try {
+                    try
+                    {
                         CreateDataSocket(true);
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex)
+                    {
                         Respond(500, ex);
                         break;
                     }
@@ -343,7 +405,8 @@ namespace mooftpserv
                 case "RETR":
                 {
                     ResultOrError<Stream> ret = fsHandler.ReadFile(arguments);
-                    if (ret.HasError) {
+                    if (ret.HasError)
+                    {
                         Respond(550, ret.Error);
                         break;
                     }
@@ -354,7 +417,8 @@ namespace mooftpserv
                 case "STOR":
                 {
                     ResultOrError<Stream> ret = fsHandler.WriteFile(arguments);
-                    if (ret.HasError) {
+                    if (ret.HasError)
+                    {
                         Respond(550, ret.Error);
                         break;
                     }
@@ -373,7 +437,8 @@ namespace mooftpserv
                 }
                 case "RNFR":
                 {
-                    if (arguments == null || arguments.Trim() == "") {
+                    if (arguments == null || arguments.Trim() == "")
+                    {
                         Respond(500, "Empty path is invalid.");
                         break;
                     }
@@ -384,7 +449,8 @@ namespace mooftpserv
                 }
                 case "RNTO":
                 {
-                    if (renameFromPath == null) {
+                    if (renameFromPath == null)
+                    {
                         Respond(503, "Use RNFR before RNTO.");
                         break;
                     }
@@ -422,7 +488,8 @@ namespace mooftpserv
                     arguments = RemoveLsArgs(arguments);
 
                     ResultOrError<FileSystemEntry[]> ret = fsHandler.ListEntries(arguments);
-                    if (ret.HasError) {
+                    if (ret.HasError)
+                    {
                         Respond(500, ret.Error);
                         break;
                     }
@@ -432,7 +499,8 @@ namespace mooftpserv
                 }
                 case "STAT":
                 {
-                    if (arguments == null || arguments.Trim() == "") {
+                    if (arguments == null || arguments.Trim() == "")
+                    {
                         Respond(504, "Not implemented for these arguments.");
                         break;
                     }
@@ -440,7 +508,8 @@ namespace mooftpserv
                     arguments = RemoveLsArgs(arguments);
 
                     ResultOrError<FileSystemEntry[]> ret = fsHandler.ListEntries(arguments);
-                    if (ret.HasError) {
+                    if (ret.HasError)
+                    {
                         Respond(500, ret.Error);
                         break;
                     }
@@ -497,11 +566,13 @@ namespace mooftpserv
             int endPos = -1;
             // can there already be a command in the buffer?
             if (cmdRcvBytes > 0)
-                Array.IndexOf(cmdRcvBuffer, (byte)'\n', 0, cmdRcvBytes);
+                Array.IndexOf(cmdRcvBuffer, (byte) '\n', 0, cmdRcvBytes);
 
-            try {
+            try
+            {
                 // read data until a newline is found
-                do {
+                do
+                {
                     int freeBytes = cmdRcvBuffer.Length - cmdRcvBytes;
                     int bytes = controlSocket.Receive(cmdRcvBuffer, cmdRcvBytes, freeBytes, SocketFlags.None);
                     if (bytes <= 0)
@@ -510,11 +581,13 @@ namespace mooftpserv
                     cmdRcvBytes += bytes;
 
                     // search \r\n
-                    endPos = Array.IndexOf(cmdRcvBuffer, (byte)'\r', 0, cmdRcvBytes);
-                    if (endPos != -1 && (cmdRcvBytes <= endPos + 1 || cmdRcvBuffer[endPos + 1] != (byte)'\n'))
+                    endPos = Array.IndexOf(cmdRcvBuffer, (byte) '\r', 0, cmdRcvBytes);
+                    if (endPos != -1 && (cmdRcvBytes <= endPos + 1 || cmdRcvBuffer[endPos + 1] != (byte) '\n'))
                         endPos = -1;
                 } while (endPos == -1 && cmdRcvBytes < cmdRcvBuffer.Length);
-            } catch (SocketException) {
+            }
+            catch (SocketException)
+            {
                 // in case the socket is closed or has some other error while reading
                 return false;
             }
@@ -580,27 +653,41 @@ namespace mooftpserv
         /// </summary>
         private void HandleAuth(string verb, string args)
         {
-            if (verb == "USER" && args != null) {
-                if (authHandler.AllowLogin(args, null)) {
+            if (verb == "USER" && args != null)
+            {
+                if (authHandler.AllowLogin(args, null))
+                {
                     Respond(230, "Login successful.");
                     loggedIn = true;
-                } else {
+                }
+                else
+                {
                     loggedInUser = args;
                     Respond(331, "Password please.");
                 }
-            } else if (verb == "PASS") {
-                if (loggedInUser != null) {
-                    if (authHandler.AllowLogin(loggedInUser, args)) {
+            }
+            else if (verb == "PASS")
+            {
+                if (loggedInUser != null)
+                {
+                    if (authHandler.AllowLogin(loggedInUser, args))
+                    {
                         Respond(230, "Login successful.");
                         loggedIn = true;
-                    } else {
+                    }
+                    else
+                    {
                         loggedInUser = null;
                         Respond(530, "Login failed, please try again.");
                     }
-                } else {
+                }
+                else
+                {
                     Respond(530, "No USER specified.");
                 }
-            } else {
+            }
+            else
+            {
                 Respond(530, "Please login first.");
             }
         }
@@ -610,9 +697,11 @@ namespace mooftpserv
         /// </summary>
         private void SendData(Stream stream)
         {
-            try {
+            try
+            {
                 bool passive = (dataPort == null);
-                using (Socket socket = OpenDataConnection()) {
+                using (Socket socket = OpenDataConnection())
+                {
                     if (socket == null)
                         return;
 
@@ -622,24 +711,31 @@ namespace mooftpserv
                     if (logHandler != null)
                         logHandler.NewDataConnection(remote, local, passive);
 
-                    try {
-                        while (true) {
+                    try
+                    {
+                        while (true)
+                        {
                             int bytes = stream.Read(dataBuffer, 0, dataBufferSize);
-                            if (bytes <= 0) {
+                            if (bytes <= 0)
+                            {
                                 break;
                             }
 
-                            if (transferDataType == DataType.IMAGE || noAsciiConv) {
+                            if (transferDataType == DataType.IMAGE || noAsciiConv)
+                            {
                                 // TYPE I -> just pass through
                                 socket.Send(dataBuffer, bytes, SocketFlags.None);
-                            } else {
+                            }
+                            else
+                            {
                                 // TYPE A -> convert local EOL style to CRLF
 
                                 // if the buffer ends with a potential partial EOL,
                                 // try to read the rest of the EOL
                                 // (i assume that the EOL has max. two bytes)
                                 if (localEolBytes.Length == 2 &&
-                                    dataBuffer[bytes - 1] == localEolBytes[0]) {
+                                    dataBuffer[bytes - 1] == localEolBytes[0])
+                                {
                                     if (stream.Read(dataBuffer, bytes, 1) == 1)
                                         ++bytes;
                                 }
@@ -653,15 +749,21 @@ namespace mooftpserv
                         // flush socket before closing (done by using-statement)
                         socket.Shutdown(SocketShutdown.Send);
                         Respond(226, "Transfer complete.");
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex)
+                    {
                         Respond(500, ex);
                         return;
-                    } finally {
+                    }
+                    finally
+                    {
                         if (logHandler != null)
                             logHandler.ClosedDataConnection(remote, local, passive);
                     }
                 }
-            } finally {
+            }
+            finally
+            {
                 stream.Close();
             }
         }
@@ -671,9 +773,11 @@ namespace mooftpserv
         /// </summary>
         private void ReceiveData(Stream stream)
         {
-            try {
+            try
+            {
                 bool passive = (dataPort == null);
-                using (Socket socket = OpenDataConnection()) {
+                using (Socket socket = OpenDataConnection())
+                {
                     if (socket == null)
                         return;
 
@@ -683,20 +787,28 @@ namespace mooftpserv
                     if (logHandler != null)
                         logHandler.NewDataConnection(remote, local, passive);
 
-                    try {
-                        while (true) {
+                    try
+                    {
+                        while (true)
+                        {
                             // fill up the in-memory buffer before writing to disk
                             int totalBytes = 0;
-                            while (totalBytes < dataBufferSize) {
+                            while (totalBytes < dataBufferSize)
+                            {
                                 int freeBytes = dataBufferSize - totalBytes;
                                 int newBytes = socket.Receive(dataBuffer, totalBytes, freeBytes, SocketFlags.None);
 
-                                if (newBytes > 0) {
+                                if (newBytes > 0)
+                                {
                                     totalBytes += newBytes;
-                                } else if (newBytes < 0) {
+                                }
+                                else if (newBytes < 0)
+                                {
                                     Respond(500, String.Format("Transfer failed: Receive() returned {0}", newBytes));
                                     return;
-                                } else {
+                                }
+                                else
+                                {
                                     // end of data
                                     break;
                                 }
@@ -706,15 +818,19 @@ namespace mooftpserv
                             if (totalBytes == 0)
                                 break;
 
-                            if (transferDataType == DataType.IMAGE || noAsciiConv) {
+                            if (transferDataType == DataType.IMAGE || noAsciiConv)
+                            {
                                 // TYPE I -> just pass through
                                 stream.Write(dataBuffer, 0, totalBytes);
-                            } else {
+                            }
+                            else
+                            {
                                 // TYPE A -> convert CRLF to local EOL style
 
                                 // if the buffer ends with a potential partial CRLF,
                                 // try to read the LF
-                                if (dataBuffer[totalBytes - 1] == remoteEolBytes[0]) {
+                                if (dataBuffer[totalBytes - 1] == remoteEolBytes[0])
+                                {
                                     if (socket.Receive(dataBuffer, totalBytes, 1, SocketFlags.None) == 1)
                                         ++totalBytes;
                                 }
@@ -727,15 +843,21 @@ namespace mooftpserv
 
                         socket.Shutdown(SocketShutdown.Receive);
                         Respond(226, "Transfer complete.");
-                    } catch (Exception ex) {
+                    }
+                    catch (Exception ex)
+                    {
                         Respond(500, ex);
                         return;
-                    } finally {
+                    }
+                    finally
+                    {
                         if (logHandler != null)
                             logHandler.ClosedDataConnection(remote, local, passive);
                     }
                 }
-            } finally {
+            }
+            finally
+            {
                 stream.Close();
             }
         }
@@ -754,7 +876,8 @@ namespace mooftpserv
 
             dataSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.IP);
 
-            if (listen) {
+            if (listen)
+            {
                 IPAddress serverIP = ((IPEndPoint) controlSocket.LocalEndPoint).Address;
                 dataSocket.Bind(new IPEndPoint(serverIP, 0));
                 dataSocketBound = true; // CF is missing Socket.IsBound
@@ -768,28 +891,36 @@ namespace mooftpserv
         /// </summary>
         private Socket OpenDataConnection()
         {
-            if (dataPort == null && !dataSocketBound) {
+            if (dataPort == null && !dataSocketBound)
+            {
                 Respond(425, "No data port configured, use PORT or PASV.");
                 return null;
             }
 
             Respond(150, "Opening data connection.");
 
-            try {
-                if (dataPort != null) {
+            try
+            {
+                if (dataPort != null)
+                {
                     // active mode
                     dataSocket.Connect(dataPort);
                     dataPort = null;
                     return dataSocket;
-                } else {
+                }
+                else
+                {
                     // passive mode
                     Socket socket = dataSocket.Accept();
                     dataSocket.Close();
                     dataSocketBound = false;
                     return socket;
                 }
-            } catch (Exception ex) {
-                Respond(500, String.Format("Failed to open data connection: {0}", ex.Message.Replace(Environment.NewLine, " ")));
+            }
+            catch (Exception ex)
+            {
+                Respond(500,
+                    String.Format("Failed to open data connection: {0}", ex.Message.Replace(Environment.NewLine, " ")));
                 return null;
             }
         }
@@ -823,12 +954,14 @@ namespace mooftpserv
             int startIndex = 0;
             int resultLen = 0;
             int searchLen;
-            while ((searchLen = len - startIndex) > 0) {
+            while ((searchLen = len - startIndex) > 0)
+            {
                 // search for the first byte of the EOL sequence
                 int eolIndex = Array.IndexOf(buffer, fromBytes[0], startIndex, searchLen);
 
                 // shortcut if there is no EOL in the whole buffer
-                if (eolIndex == -1 && startIndex == 0) {
+                if (eolIndex == -1 && startIndex == 0)
+                {
                     resultBuffer = buffer;
                     return len;
                 }
@@ -837,29 +970,37 @@ namespace mooftpserv
                 if (resultBuffer == null)
                     resultBuffer = new byte[len * 2];
 
-                if (eolIndex == -1) {
+                if (eolIndex == -1)
+                {
                     Array.Copy(buffer, startIndex, resultBuffer, resultLen, searchLen);
                     resultLen += searchLen;
                     break;
-                } else {
+                }
+                else
+                {
                     // compare the rest of the EOL
                     int matchBytes = 1;
-                    for (int i = 1; i < fromBytes.Length && eolIndex + i < len; ++i) {
+                    for (int i = 1; i < fromBytes.Length && eolIndex + i < len; ++i)
+                    {
                         if (buffer[eolIndex + i] == fromBytes[i])
                             ++matchBytes;
                     }
 
-                    if (matchBytes == fromBytes.Length) {
+                    if (matchBytes == fromBytes.Length)
+                    {
                         // found an EOL to convert
                         int copyLen = eolIndex - startIndex;
-                        if (copyLen > 0) {
+                        if (copyLen > 0)
+                        {
                             Array.Copy(buffer, startIndex, resultBuffer, resultLen, copyLen);
                             resultLen += copyLen;
                         }
                         Array.Copy(toBytes, 0, resultBuffer, resultLen, toBytes.Length);
                         resultLen += toBytes.Length;
                         startIndex += copyLen + fromBytes.Length;
-                    } else {
+                    }
+                    else
+                    {
                         int copyLen = (eolIndex - startIndex) + 1;
                         Array.Copy(buffer, startIndex, resultBuffer, resultLen, copyLen);
                         resultLen += copyLen;
@@ -878,11 +1019,15 @@ namespace mooftpserv
         {
             string[] tokens = address.Split(',');
             byte[] bytes = new byte[tokens.Length];
-            for (int i = 0; i < tokens.Length; ++i) {
-                try {
+            for (int i = 0; i < tokens.Length; ++i)
+            {
+                try
+                {
                     // CF is missing TryParse
                     bytes[i] = byte.Parse(tokens[i]);
-                } catch (Exception) {
+                }
+                catch (Exception)
+                {
                     return null;
                 }
             }
@@ -901,8 +1046,8 @@ namespace mooftpserv
             int port = address.Port;
 
             return String.Format("{0},{1},{2},{3},{4},{5}",
-                                 ip[0], ip[1], ip[2], ip[3],
-                                 (port & 0xFF00) >> 8, port & 0x00FF);
+                ip[0], ip[1], ip[2], ip[3],
+                (port & 0xFF00) >> 8, port & 0x00FF);
         }
 
         /// <summary>
@@ -911,14 +1056,16 @@ namespace mooftpserv
         private string FormatDirList(FileSystemEntry[] list)
         {
             int maxSizeChars = 0;
-            foreach (FileSystemEntry entry in list) {
+            foreach (FileSystemEntry entry in list)
+            {
                 maxSizeChars = Math.Max(maxSizeChars, entry.Size.ToString().Length);
             }
 
             DateTime sixMonthsAgo = EnsureUnixTime(DateTime.Now.ToUniversalTime().AddMonths(-6));
 
             StringBuilder result = new StringBuilder();
-            foreach (FileSystemEntry entry in list) {
+            foreach (FileSystemEntry entry in list)
+            {
                 char dirflag = (entry.IsDirectory ? 'd' : '-');
                 string size = entry.Size.ToString().PadLeft(maxSizeChars);
                 DateTime time = EnsureUnixTime(entry.LastModifiedTimeUtc);
@@ -929,7 +1076,7 @@ namespace mooftpserv
                     timestr += time.ToString(" dd hh:mm");
 
                 result.AppendFormat("{0}rwxr--r-- 1 owner group {1} {2} {3}\r\n",
-                                    dirflag, size, timestr, entry.Name);
+                    dirflag, size, timestr, entry.Name);
             }
 
             return result.ToString();
@@ -941,7 +1088,8 @@ namespace mooftpserv
         private string FormatNLST(FileSystemEntry[] list)
         {
             StringBuilder sb = new StringBuilder();
-            foreach (FileSystemEntry entry in list) {
+            foreach (FileSystemEntry entry in list)
+            {
                 sb.Append(entry.Name);
                 sb.Append("\r\n");
             }
@@ -967,9 +1115,9 @@ namespace mooftpserv
 
             int yearDiff = time.Year - 1970;
             if (yearDiff < 0)
-              return time.AddYears(-yearDiff);
+                return time.AddYears(-yearDiff);
             else
-              return time;
+                return time;
         }
 
         /// <summary>
@@ -986,7 +1134,8 @@ namespace mooftpserv
         /// </summary>
         private string RemoveLsArgs(string args)
         {
-            if (args != null && (args.StartsWith("-a") || args.StartsWith("-l"))) {
+            if (args != null && (args.StartsWith("-a") || args.StartsWith("-l")))
+            {
                 if (args.Length == 2)
                     return null;
                 else if (args.Length > 3 && args[2] == ' ')

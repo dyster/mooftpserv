@@ -14,6 +14,7 @@ namespace mooftpserv
     {
         // default buffer size for send/receive buffers
         private const int DEFAULT_BUFFER_SIZE = 64 * 1024;
+
         // default port for the server socket
         private const int DEFAULT_PORT = 21;
 
@@ -122,16 +123,17 @@ namespace mooftpserv
             socket.Start();
 
             // listen for new connections
-            try {
+            try
+            {
                 while (true)
                 {
                     Socket peer = socket.AcceptSocket();
 
                     IPEndPoint peerPort = (IPEndPoint) peer.RemoteEndPoint;
                     Session session = new Session(peer, bufferSize,
-                                                  authHandler.Clone(peerPort),
-                                                  fsHandler.Clone(peerPort),
-                                                  logHandler.Clone(peerPort));
+                        authHandler.Clone(peerPort),
+                        fsHandler.Clone(peerPort),
+                        logHandler.Clone(peerPort));
 
                     session.Start();
                     sessions.Add(session);
@@ -139,17 +141,23 @@ namespace mooftpserv
                     // purge old sessions
                     for (int i = sessions.Count - 1; i >= 0; --i)
                     {
-                        if (!sessions[i].IsOpen) {
+                        if (!sessions[i].IsOpen)
+                        {
                             sessions.RemoveAt(i);
                             --i;
                         }
                     }
                 }
-            } catch (SocketException) {
+            }
+            catch (SocketException)
+            {
                 // ignore, Stop() will probably cause this exception
-            } finally {
+            }
+            finally
+            {
                 // close all running connections
-                foreach (Session s in sessions) {
+                foreach (Session s in sessions)
+                {
                     s.Stop();
                 }
             }

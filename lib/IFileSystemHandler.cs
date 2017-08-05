@@ -198,4 +198,3 @@ namespace mooftpserv
         ResultOrError<DateTime> GetLastModifiedTimeUtc(string path);
     }
 }
-

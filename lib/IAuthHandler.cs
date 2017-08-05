@@ -42,4 +42,3 @@ namespace mooftpserv
         bool AllowActiveDataConnection(IPEndPoint target);
     }
 }
-
